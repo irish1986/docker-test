@@ -4,7 +4,7 @@ name: renovate
 on:
   schedule:
     - cron: "17 * * * *" # hourly
-  workflow_dispatch: {} # "Run workflow" button — handy during a live demo
+  workflow_dispatch: {}
 
 permissions:
   contents: read

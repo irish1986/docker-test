@@ -1,0 +1,6 @@
+---
+
+ui-message: "Hello from GitOps! Deployed by Dockhand from git."
+ui-color: "#34577c"
+# ui-logo: "https://raw.githubusercontent.com/stefanprodan/podinfo/master/screens/podinfo-ui-v3.png"
+level: info

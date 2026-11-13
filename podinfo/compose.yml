@@ -1,26 +1,17 @@
 ---
-# podinfo GitOps demo stack — deployed by Dockhand from git (see README).
-#
-# Secrets (${TS_AUTHKEY}, ${DEMO_API_KEY}) are NOT in this repo: Dockhand pulls
-# them from Infisical folder /podinfo at deploy time (DOCKHAND_SECRET_SELECTOR).
-# Non-secret overrides (e.g. TS_HOSTNAME) are set as stack variables in Dockhand.
-
 name: podinfo
 
 services:
-  # Tailscale sidecar: owns the network namespace and exposes podinfo on the
-  # tailnet over HTTPS. Flip "AllowFunnel" in tailscale/serve.json to go public.
   tailscale:
     image: tailscale/tailscale:v1.104.7
     hostname: ${TS_HOSTNAME:-podinfo}
     restart: unless-stopped
     environment:
-      # OAuth client secret with "?ephemeral=false&preauthorized=true" appended.
       TS_AUTHKEY: ${TS_AUTHKEY:?TS_AUTHKEY missing - check the Infisical provider on this stack}
       TS_EXTRA_ARGS: --advertise-tags=tag:podinfo
       TS_HOSTNAME: ${TS_HOSTNAME:-podinfo}
       TS_STATE_DIR: /var/lib/tailscale
-      TS_SERVE_CONFIG: /config/serve.json # directory mount so edits are picked up
+      TS_SERVE_CONFIG: /config/serve.json
       TS_USERSPACE: "true"
     volumes:
       - tailscale-state:/var/lib/tailscale
@@ -29,18 +20,14 @@ services:
   podinfo:
     image: ghcr.io/stefanprodan/podinfo:6.17.0
     restart: unless-stopped
-    # Shares the sidecar's network: podinfo listens on 127.0.0.1:9898 inside the
-    # tailnet node. No host ports are published.
     network_mode: service:tailscale
     depends_on:
       - tailscale
     command:
       - ./podinfo
       - --port=9898
-      - --config-path=/config # reads /config/config.yaml (UI message, color, logo)
+      - --config-path=/config
     environment:
-      # Demo secret from Infisical — visible at /env on purpose. Never put a real
-      # credential here: podinfo's /env endpoint prints every variable.
       DEMO_API_KEY: ${DEMO_API_KEY:?DEMO_API_KEY missing - check the Infisical provider on this stack}
     volumes:
       - ./config:/config:ro

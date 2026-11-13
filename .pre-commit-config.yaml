@@ -1,0 +1,39 @@
+---
+# Git hooks run by prek (https://prek.j178.dev), a fast drop-in for pre-commit.
+#   prek install            # once per clone: run hooks on every commit
+#   prek run --all-files    # run everything now (CI does the same)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args: [--strict, --config-file=.github/linter/.yamllint.yaml]
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+
+  - repo: local
+    hooks:
+      - id: compose-config
+        name: docker compose config (podinfo)
+        language: system
+        entry: env TS_AUTHKEY=dummy DEMO_API_KEY=dummy docker compose -f podinfo/compose.yml config --quiet
+        files: ^podinfo/
+        pass_filenames: false

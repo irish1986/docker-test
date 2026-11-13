@@ -1,0 +1,74 @@
+---
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: j178/prek-action@v3.1.0
+
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      # Image is read from compose.yml, so every Renovate bump PR is tested.
+      - name: Start podinfo with repo config
+        run: |
+          image=$(TS_AUTHKEY=dummy DEMO_API_KEY=ci-demo \
+            docker compose -f podinfo/compose.yml config --format json \
+            | jq -r '.services.podinfo.image')
+          echo "Testing $image"
+          docker run -d --name podinfo -p 9898:9898 \
+            -e DEMO_API_KEY=ci-demo \
+            -v "$PWD/podinfo/config:/config:ro" \
+            "$image" ./podinfo --port=9898 --config-path=/config
+
+      - name: Wait for /readyz
+        run: |
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:9898/readyz && exit 0
+            sleep 1
+          done
+          docker logs podinfo
+          exit 1
+
+      - name: Healthcheck command from compose works
+        run: docker exec podinfo podcli check http http://localhost:9898/healthz
+
+      - name: UI message comes from config.yaml
+        run: |
+          expected=$(yq -r '.["ui-message"]' podinfo/config/config.yaml)
+          actual=$(curl -fsS -H 'Accept: application/json' http://localhost:9898/ | jq -r .message)
+          echo "expected: $expected"
+          echo "actual:   $actual"
+          [ "$expected" = "$actual" ]
+
+      - name: Injected secret is visible at /env
+        run: curl -fsS http://localhost:9898/env | jq -e 'index("DEMO_API_KEY=ci-demo") != null'
+
+      - name: Version matches the pinned image tag
+        run: |
+          tag=$(yq -r '.services.podinfo.image | split("@") | .[0] | split(":") | .[-1]' podinfo/compose.yml)
+          version=$(curl -fsS http://localhost:9898/version | jq -r .version)
+          echo "tag=$tag version=$version"
+          [ "$tag" = "$version" ]
+
+      - name: Logs on failure
+        if: failure()
+        run: docker logs podinfo || true
