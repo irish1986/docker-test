@@ -1,0 +1,45 @@
+---
+# Dockhand bootstrap — the ONE stack started by hand (it can't deploy itself).
+#
+# Run from this directory with secrets injected from Infisical folder /dockhand:
+#   infisical secrets-manager run --projectId="$INFISICAL_PROJECT_ID" \
+#     --env=prod --path=/dockhand -- docker compose up -d
+#
+# UI: https://dockhand.<your-tailnet>.ts.net (tailnet only, never public).
+
+name: dockhand
+
+services:
+  tailscale:
+    image: tailscale/tailscale:v1.104.7
+    hostname: ${TS_HOSTNAME:-dockhand}
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?run via "infisical secrets-manager run" - see README}
+      TS_EXTRA_ARGS: --advertise-tags=tag:dockhand
+      TS_HOSTNAME: ${TS_HOSTNAME:-dockhand}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_USERSPACE: "true"
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - ./serve.json:/config/serve.json:ro
+
+  dockhand:
+    image: fnsys/dockhand:v1.0.57
+    restart: unless-stopped
+    network_mode: service:tailscale # UI on 127.0.0.1:3000, published via tailscale serve
+    depends_on:
+      - tailscale
+    environment:
+      # Encrypts credentials stored in Dockhand's DB. Lose it = lose those credentials.
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?run via "infisical secrets-manager run" - see README}
+      # Matching host/container path so git stacks with relative bind mounts
+      # (./config, ./tailscale) resolve to real host paths.
+      DATA_DIR: /opt/dockhand
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/dockhand:/opt/dockhand
+
+volumes:
+  tailscale-state:
