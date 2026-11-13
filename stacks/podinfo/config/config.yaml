@@ -1,0 +1,9 @@
+---
+# podinfo configuration (keys = podinfo CLI flag names).
+# Edit, commit, push: Dockhand notices the commit and recreates the stack.
+# podinfo reads this file at startup only — the recreate is what applies it.
+
+ui-message: "Hello from GitOps! Deployed by Dockhand from git."
+ui-color: "#34577c"
+# ui-logo: "https://raw.githubusercontent.com/stefanprodan/podinfo/master/screens/podinfo-ui-v3.png"
+level: info
